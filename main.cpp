@@ -199,6 +199,7 @@ uint32_t timer_callback(uint32_t interval, void *param) {
     }
     //printf("Processed %d events\n", events);
     flip();
+    SDL_Delay(15);
     SDL_AddTimer(16, timer_callback, NULL);
 }
 
@@ -479,11 +480,29 @@ int main(int argc, char * argv[]) {
                     printf("I (0x%02x) += V%X (0x%02x)\n", I, digit2, registers[digit2]);
                     I+=registers[digit2];
                     break;
-                case 0x0a:
-                case 0x29:
                 case 0x33:
-                case 0x55:
+                    printf("I = BCD(V%X) (%d)\n", digit2, registers[digit2]);
+                    memory[I] = registers[digit2] / 100;
+                    memory[I+1] = (registers[digit2] % 100) / 10;
+                    memory[I+2] = (registers[digit2] % 10);
+                    break;
                 case 0x65:
+                    printf("Read V0 to V%X from memory at I\n", digit2);
+                    for(int i=0;i<digit2;i++) {
+                        registers[i] = memory[I+i];
+                    }
+                    break;
+                case 0x55:
+                    printf("Write V0 to V%X to memory at I\n", digit2);
+                    for(int i=0;i<digit2;i++) {
+                        memory[I+i] = registers[i];
+                    }
+                    break;
+                case 0x29:
+                    printf("I = addr(font %X)\n", digit2);
+                    I = digit2 * 5;
+                    break;
+                case 0x0a:
                 default:
                     fprintf(stderr, "Unknown instruction \"%04x\".\n", instruction);
                     return 1;
