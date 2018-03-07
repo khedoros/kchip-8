@@ -163,6 +163,10 @@ uint32_t timer_callback(uint32_t interval, void *param) {
                     printf("Key[%d]: %d\n", event.key.keysym.scancode, keymap[event.key.keysym.scancode]);
                     assert(keymap[event.key.keysym.scancode] < 16);
                     keys[keymap[event.key.keysym.scancode]] = true;
+                    if(waiting) {
+                        wait_key = keymap[event.key.keysym.scancode];
+                        waiting = false;
+                    }
                 }
                 break;
             case SDL_KEYUP: /* Handle a KEYUP event*/
@@ -199,7 +203,7 @@ uint32_t timer_callback(uint32_t interval, void *param) {
     }
     //printf("Processed %d events\n", events);
     flip();
-    SDL_Delay(15);
+    //SDL_Delay(15);
     SDL_AddTimer(16, timer_callback, NULL);
 }
 
@@ -294,10 +298,11 @@ int main(int argc, char * argv[]) {
 
     struct timeval start;
     gettimeofday(&start, NULL);
+    uint64_t cycle = 0;
 
     while(!quit) {
         uint16_t instruction = read16(pc);
-        printf("%04x %04x ", pc, instruction);
+        printf("%04x %04x \n", pc, instruction);
         pc+=2;
         uint8_t digit1 = instruction>>12;
         uint8_t digit2 = (instruction & DIGIT2)>>8;
@@ -308,75 +313,75 @@ int main(int argc, char * argv[]) {
         if(digit1 == 0) {
             switch(digit34) {
                 case 0xe0:
-                    printf("disp_clear()\n");
+                    //printf("disp_clear()\n");
                     disp_clear();
                     break;
                 case 0xee:
-                    printf("return\n");
+                    //printf("return\n");
                     sp++;
                     pc = stack[sp];
                     break;
                 default:
-                    printf("Call to RCA 1802 program at address 0x%03x: Not implemented\n", digit234);
+                    fprintf(stderr, "Call to RCA 1802 program at address 0x%03x: Not implemented\n", digit234);
                     return 1;
             }
         }
         else if(digit1 == 1) {
-            printf("goto 0x%03x\n", digit234);
+            //printf("goto 0x%03x\n", digit234);
             pc = digit234;
         }
         else if(digit1 == 2) {
-            printf("call 0x%03x\n", digit234);
+            //printf("call 0x%03x\n", digit234);
             stack[sp] = pc;
             sp--;
             pc = digit234;
         }
         else if(digit1 == 3) {
-            printf("V%X == 0x%02x?\n", digit2, digit34);
+            //printf("V%X == 0x%02x?\n", digit2, digit34);
             if(registers[digit2] == digit34) {
                 pc+=2;
             }
         }
         else if(digit1 == 4) {
-            printf("V%X != 0x%02x?\n", digit2, digit34);
+            //printf("V%X != 0x%02x?\n", digit2, digit34);
             if(registers[digit2] != digit34) {
                 pc+=2;
             }
         }
         else if(digit1 == 5) {
-            printf("V%X == V%X?\n", digit2, digit3);
+            //printf("V%X == V%X?\n", digit2, digit3);
             if(registers[digit2] == registers[digit3]) {
                 pc+=2;
             }
         }
         else if(digit1 == 6) {
-            printf("V%X = 0x%02x\n", digit2, digit34);
+            //printf("V%X = 0x%02x\n", digit2, digit34);
             registers[digit2] = digit34;
         }
         else if(digit1 == 7) {
-            printf("V%X += 0x%02x\n", digit2, digit34);
+            //printf("V%X += 0x%02x\n", digit2, digit34);
             registers[digit2] += digit34;
         }
         else if(digit1 == 8) {
             switch(digit4) {
                 case 0:
-                    printf("V%X = V%X\n", digit2, digit3);
+                    //printf("V%X = V%X\n", digit2, digit3);
                     registers[digit2] = registers[digit3];
                     break;
                 case 1:
-                    printf("V%X |= V%X\n", digit2, digit3);
+                    //printf("V%X |= V%X\n", digit2, digit3);
                     registers[digit2] |= registers[digit3];
                     break;
                 case 2:
-                    printf("V%X &= V%X\n", digit2, digit3);
+                    //printf("V%X &= V%X\n", digit2, digit3);
                     registers[digit2] &= registers[digit3];
                     break;
                 case 3:
-                    printf("V%X ^= V%X\n", digit2, digit3);
+                    //printf("V%X ^= V%X\n", digit2, digit3);
                     registers[digit2] ^= registers[digit3];
                     break;
                 case 4:
-                    printf("V%X += V%X (set carry?)\n", digit2, digit3);
+                    //printf("V%X += V%X (set carry?)\n", digit2, digit3);
                     if(uint16_t(registers[digit2]) + uint16_t(registers[digit3]) > 255) {
                         registers[0x0f] = 1;
                     }
@@ -392,13 +397,13 @@ int main(int argc, char * argv[]) {
                     else {
                         registers[0x0f] = 1;
                     }
-                    printf("V%X -= V%X (set carry?)\n", digit2, digit3);
-                    registers[digit2] = registers[digit3];
+                    //printf("V%X -= V%X (set carry?)\n", digit2, digit3);
+                    registers[digit2] -= registers[digit3];
                     break;
                 case 6:
-                    printf("V%X >> 1\n", digit2);
-                    registers[0x0f] = (registers[digit2] & 1);
-                    registers[digit2] >>= 1;
+                    //printf("V%X = V%X >> 1\n", digit2, digit3);
+                    registers[0x0f] = (registers[digit3] & 1);
+                    registers[digit2] = (registers[digit3]>>1);
                     break;
                 case 7:
                     if(registers[digit3] < registers[digit2]) {
@@ -407,13 +412,13 @@ int main(int argc, char * argv[]) {
                     else {
                         registers[0x0f] = 1;
                     }
-                    printf("V%X = V%X - V%X\n", digit2, digit3, digit2);
+                    //printf("V%X = V%X - V%X\n", digit2, digit3, digit2);
                     registers[digit2] = registers[digit3] - registers[digit2];
                     break;
                 case 0xe:
-                    printf("V%X (0x%02x) << 1\n", digit2, registers[digit2]);
-                    registers[0x0f] = ((registers[digit2] & 0x80)>>7);
-                    registers[digit2] <<= 1;
+                    //printf("V%X = V%X (0x%02x) << 1\n", digit2, digit3, registers[digit3]);
+                    registers[0x0f] = ((registers[digit3] & 0x80)>>7);
+                    registers[digit2] = (registers[digit3]<<1);
                     break;
                 default:
                     fprintf(stderr, "Unknown instruction \"%04x\".\n", instruction);
@@ -421,38 +426,38 @@ int main(int argc, char * argv[]) {
             }
         }
         else if(digit1 == 9) {
-            printf("V%X (0x%02x) != V%X (0x%02x)?\n", digit2, registers[digit2], digit3, registers[digit3]);
+            //printf("V%X (0x%02x) != V%X (0x%02x)?\n", digit2, registers[digit2], digit3, registers[digit3]);
             if(registers[digit2] != registers[digit3]) {
                 pc+=2;
             }
         }
         else if(digit1 == 0xa) {
-            printf("I = 0x%03x\n", digit234);
+            //printf("I = 0x%03x\n", digit234);
             I = digit234;
         }
         else if(digit1 == 0xb) {
-            printf("Jump V0 + 0x%03x\n", digit234);
+            //printf("Jump V0 + 0x%03x\n", digit234);
             pc = registers[0] + digit234;
         }
         else if(digit1 == 0xc) {
             uint8_t rval = (rand() % 256);
-            printf("V%X = rand() (0x%02x) & 0x%02x = 0x%02x\n", digit2, rval, digit34, (rval & digit34));
+            //printf("V%X = rand() (0x%02x) & 0x%02x = 0x%02x\n", digit2, rval, digit34, (rval & digit34));
             registers[digit2] = (rval & digit34);
         }
         else if(digit1 == 0xd) {
-            printf("draw(%d, %d, %d)\n", digit2, digit3, digit4);
-            draw(digit2, digit3, digit4);
+            //printf("draw(%d, %d, %d)\n", digit2, digit3, digit4);
+            draw(registers[digit2], registers[digit3], digit4);
         }
         else if(digit1 == 0xe) {
             switch(digit34) {
                 case 0xa1:
-                    printf("Key V%X (0x%x) not pressed?\n", digit2, registers[digit2]);
+                    //printf("Key V%X (0x%x) not pressed?\n", digit2, registers[digit2]);
                     if(!keys[registers[digit2]]) {
                         pc+=2;
                     }
                     break;
                 case 0x9e:
-                    printf("Key V%X (0x%x) pressed?\n", digit2, registers[digit2]);
+                    //printf("Key V%X (0x%x) pressed?\n", digit2, registers[digit2]);
                     if(keys[registers[digit2]]) {
                         pc+=2;
                     }
@@ -465,44 +470,49 @@ int main(int argc, char * argv[]) {
         else if(digit1 == 0xf) {
             switch(digit34) {
                 case 0x07:
-                    printf("V%X = timer (0x%02x)\n", digit2, delay_timer);
+                    //printf("V%X = timer (0x%02x)\n", digit2, delay_timer);
                     registers[digit2] = delay_timer;
                     break;
                 case 0x18:
-                    printf("Sound = V%X (0x%02x)\n", digit2, registers[digit2]);
+                    //printf("Sound = V%X (0x%02x)\n", digit2, registers[digit2]);
                     sound_timer = registers[digit2];
                     break;
                 case 0x15:
-                    printf("timer = V%X\n (0x%02x)\n", digit2, registers[digit2]);
+                    //printf("timer = V%X\n (0x%02x)\n", digit2, registers[digit2]);
                     delay_timer = registers[digit2];
                     break;
                 case 0x1e:
-                    printf("I (0x%02x) += V%X (0x%02x)\n", I, digit2, registers[digit2]);
+                    //printf("I (0x%02x) += V%X (0x%02x)\n", I, digit2, registers[digit2]);
                     I+=registers[digit2];
                     break;
                 case 0x33:
-                    printf("I = BCD(V%X) (%d)\n", digit2, registers[digit2]);
+                    //printf("I = BCD(V%X) (%d)\n", digit2, registers[digit2]);
                     memory[I] = registers[digit2] / 100;
                     memory[I+1] = (registers[digit2] % 100) / 10;
                     memory[I+2] = (registers[digit2] % 10);
                     break;
                 case 0x65:
-                    printf("Read V0 to V%X from memory at I\n", digit2);
+                    //printf("Read V0 to V%X from memory at I\n", digit2);
                     for(int i=0;i<digit2;i++) {
                         registers[i] = memory[I+i];
                     }
                     break;
                 case 0x55:
-                    printf("Write V0 to V%X to memory at I\n", digit2);
+                    //printf("Write V0 to V%X to memory at I\n", digit2);
                     for(int i=0;i<digit2;i++) {
                         memory[I+i] = registers[i];
                     }
                     break;
                 case 0x29:
-                    printf("I = addr(font %X)\n", digit2);
-                    I = digit2 * 5;
+                    //printf("I = addr(font %X)\n", registers[digit2]);
+                    I = registers[digit2] * 5;
                     break;
                 case 0x0a:
+                    //printf("V%X = getkey()\n", digit2);
+                    waiting = true;
+                    while(waiting) { }
+                    registers[digit2] = wait_key;
+                    break;
                 default:
                     fprintf(stderr, "Unknown instruction \"%04x\".\n", instruction);
                     return 1;
@@ -512,6 +522,29 @@ int main(int argc, char * argv[]) {
             fprintf(stderr, "Unknown instruction \"%04x\".\n", instruction);
             return 1;
         }
+        cycle++;
+        if(cycle % 10000 == 0) {
+            struct timeval now;
+            gettimeofday(&now, NULL);
+
+            struct timeval running;
+
+            timersub(&now,&start,&running);
+            uint64_t running_msecs = running.tv_sec * 1000 + running.tv_usec / 1000;
+            uint64_t clock_speed = 0;
+            if(running_msecs > 0) {
+                clock_speed = 1000 * (cycle / running_msecs);
+                printf("%ld cycles in %ld msec = %ld Hz\n", cycle, running_msecs, clock_speed);
+            }
+/*
+            uint64_t expected_running = running_msecs - cycle / 600;
+            if(running_msecs < expected_running && expected_running - running_msecs > 0) {
+                printf("Expected %ld to pass, but %ld passed, so sleeping for %ld ms\n", expected_running, running_msecs, expected_running - running_msecs);
+                SDL_Delay(expected_running - running_msecs);
+            }
+        */
+        }
+
     }
     return 0;
 }
