@@ -309,7 +309,9 @@ int main(int argc, char * argv[]) {
     uint64_t cycle = 0;
 
     while(!quit) {
-        while(frame_insts >= 10) {}
+        while(frame_insts >= 10) {
+            SDL_Delay(2); //This one isn't to slow down the emulation, it's just so I don't waste time waiting for the video refresh to run
+        }
         uint16_t instruction = read16(pc);
         printf("%04x %04x \n", pc, instruction);
         pc+=2;
