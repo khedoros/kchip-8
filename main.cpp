@@ -40,6 +40,7 @@ SDL_Surface * buffer = NULL;
 SDL_Texture * texture = NULL;
 uint32_t col[2] = {0};
 uint8_t keymap[512] = {255};
+uint32_t frame_insts = 0;
 
 //Registers
 uint8_t registers[16] = {0};
@@ -86,6 +87,12 @@ void draw(uint8_t x, uint8_t y, uint8_t h) {
             screen[xpos][ypos] ^= pixel;
             pset(xpos,ypos);
         }
+    }
+    if(flipped) {
+        registers[0xf] = 1;
+    }
+    else {
+        registers[0xf] = 0;
     }
 }
 
@@ -203,7 +210,8 @@ uint32_t timer_callback(uint32_t interval, void *param) {
     }
     //printf("Processed %d events\n", events);
     flip();
-    //SDL_Delay(15);
+    SDL_Delay(16);
+    frame_insts = 0;
     SDL_AddTimer(16, timer_callback, NULL);
 }
 
@@ -301,6 +309,7 @@ int main(int argc, char * argv[]) {
     uint64_t cycle = 0;
 
     while(!quit) {
+        while(frame_insts >= 10) {}
         uint16_t instruction = read16(pc);
         printf("%04x %04x \n", pc, instruction);
         pc+=2;
@@ -523,6 +532,7 @@ int main(int argc, char * argv[]) {
             return 1;
         }
         cycle++;
+        frame_insts++;
         if(cycle % 10000 == 0) {
             struct timeval now;
             gettimeofday(&now, NULL);
