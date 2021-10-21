@@ -1,6 +1,7 @@
 #include<stdlib.h>
 #include<time.h>
 #include<stdint.h>
+#include<stdbool.h>
 #include<stdio.h>
 #include<assert.h>
 #include<sys/time.h>
@@ -56,7 +57,7 @@ bool waiting = false;
 bool quit = false;
 
 uint16_t read16(uint16_t addr) {
-    return uint16_t(256 * uint16_t(memory[addr]) + uint16_t(memory[addr+1]));
+    return (uint16_t)(256 * (uint16_t)(memory[addr]) + (uint16_t)(memory[addr+1]));
 }
 
 void pset(int x, int y) {
@@ -217,7 +218,7 @@ uint32_t timer_callback(uint32_t interval, void *param) {
 
 bool vid_init() {
         /* Initialize the SDL library */
-        window = SDL_CreateWindow("KhedGB",
+        window = SDL_CreateWindow("KChip-8",
                                   SDL_WINDOWPOS_CENTERED,
                                   SDL_WINDOWPOS_CENTERED,
                                   640, 320,
@@ -393,7 +394,7 @@ int main(int argc, char * argv[]) {
                     break;
                 case 4:
                     //printf("V%X += V%X (set carry?)\n", digit2, digit3);
-                    if(uint16_t(registers[digit2]) + uint16_t(registers[digit3]) > 255) {
+                    if((uint16_t)(registers[digit2]) + (uint16_t)(registers[digit3]) > 255) {
                         registers[0x0f] = 1;
                     }
                     else {
