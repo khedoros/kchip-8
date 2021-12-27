@@ -18,7 +18,7 @@ bool screen[64][32] = {{false}};
 uint16_t stack[128] = {0};
 bool keys[16] = {false};
 
-bool font[16 * 5] = {0xf0,0x90,0x90,0x90,0xf0, //0
+uint8_t font[16 * 5] = {0xf0,0x90,0x90,0x90,0xf0, //0
                      0x20,0x60,0x20,0x20,0x70, //1
                      0xf0,0x10,0xf0,0x80,0xf0, //2
                      0xf0,0x10,0xf0,0x10,0xf0, //3
@@ -57,7 +57,7 @@ bool waiting = false;
 bool quit = false;
 
 uint16_t read16(uint16_t addr) {
-    return (uint16_t)(256 * (uint16_t)(memory[addr]) + (uint16_t)(memory[addr+1]));
+    return (uint16_t)(256 * (uint16_t)memory[addr] + (uint16_t)memory[addr+1]);
 }
 
 void pset(int x, int y) {
@@ -214,6 +214,7 @@ uint32_t timer_callback(uint32_t interval, void *param) {
     SDL_Delay(16);
     frame_insts = 0;
     SDL_AddTimer(16, timer_callback, NULL);
+    return 0;
 }
 
 bool vid_init() {
@@ -349,7 +350,7 @@ int main(int argc, char * argv[]) {
             pc = digit234;
         }
         else if(digit1 == 3) {
-            //printf("V%X == 0x%02x?\n", digit2, digit34);
+            //printf("V%X == 0x%02x? (V%X is %02x)\n", digit2, digit34, digit2, registers[digit2]);
             if(registers[digit2] == digit34) {
                 pc+=2;
             }
@@ -394,7 +395,7 @@ int main(int argc, char * argv[]) {
                     break;
                 case 4:
                     //printf("V%X += V%X (set carry?)\n", digit2, digit3);
-                    if((uint16_t)(registers[digit2]) + (uint16_t)(registers[digit3]) > 255) {
+                    if((uint16_t)registers[digit2] + (uint16_t)registers[digit3] > 255) {
                         registers[0x0f] = 1;
                     }
                     else {
@@ -414,8 +415,8 @@ int main(int argc, char * argv[]) {
                     break;
                 case 6:
                     //printf("V%X = V%X >> 1\n", digit2, digit3);
-                    registers[0x0f] = (registers[digit3] & 1);
-                    registers[digit2] = (registers[digit3]>>1);
+                    registers[0x0f] = (registers[digit2] & 1);
+                    registers[digit2] = (registers[digit2]>>1);
                     break;
                 case 7:
                     if(registers[digit3] < registers[digit2]) {
@@ -429,8 +430,8 @@ int main(int argc, char * argv[]) {
                     break;
                 case 0xe:
                     //printf("V%X = V%X (0x%02x) << 1\n", digit2, digit3, registers[digit3]);
-                    registers[0x0f] = ((registers[digit3] & 0x80)>>7);
-                    registers[digit2] = (registers[digit3]<<1);
+                    registers[0x0f] = ((registers[digit2] & 0x80)>>7);
+                    registers[digit2] = (registers[digit2]<<1);
                     break;
                 default:
                     fprintf(stderr, "Unknown instruction \"%04x\".\n", instruction);
@@ -502,18 +503,21 @@ int main(int argc, char * argv[]) {
                     memory[I] = registers[digit2] / 100;
                     memory[I+1] = (registers[digit2] % 100) / 10;
                     memory[I+2] = (registers[digit2] % 10);
+                    //printf("reg val: %d, I: %d, mem[I]: %d, mem[I+1]: %d, mem[I+2]: %d\n", registers[digit2], I, memory[I], memory[I+1], memory[I+2]);
                     break;
                 case 0x65:
                     //printf("Read V0 to V%X from memory at I\n", digit2);
-                    for(int i=0;i<digit2;i++) {
+                    for(int i=0;i<=digit2;i++) {
                         registers[i] = memory[I+i];
                     }
+                    //I-=digit2;
                     break;
                 case 0x55:
                     //printf("Write V0 to V%X to memory at I\n", digit2);
-                    for(int i=0;i<digit2;i++) {
+                    for(int i=0;i<=digit2;i++) {
                         memory[I+i] = registers[i];
                     }
+                    //I+=digit2;
                     break;
                 case 0x29:
                     //printf("I = addr(font %X)\n", registers[digit2]);
