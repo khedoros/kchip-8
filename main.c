@@ -14,7 +14,6 @@
 
 //Memory areas
 uint8_t memory[4096] = {0};
-bool screen[64][32] = {{false}};
 uint16_t stack[128] = {0};
 bool keys[16] = {false};
 
@@ -60,16 +59,18 @@ uint16_t read16(uint16_t addr) {
     return (uint16_t)(256 * (uint16_t)memory[addr] + (uint16_t)memory[addr+1]);
 }
 
-void pset(int x, int y) {
-    uint32_t * pixels = ((uint32_t *)buffer->pixels);
-    pixels[y*64+x] = col[screen[x][y]];
+void pset(int x, int y, bool color) {
+    ((uint32_t *)buffer->pixels)[y*64+x] = col[color];
 }
 
-void disp_clear() {
+bool pget(int x, int y) {
+    return ((uint32_t *)buffer->pixels)[y*64+x] == col[1];
+}
+
+void disp_clear(void) {
     for(int x=0;x<64;x++) {
         for(int y=0;y<32;y++) {
-            screen[x][y] = false;
-            pset(x,y);
+            pset(x,y, false);
         }
     }
 }
@@ -82,11 +83,15 @@ void draw(uint8_t x, uint8_t y, uint8_t h) {
         for(int j=0;j<8 && j+x<64;j++) {
             uint8_t xpos = x+j;
             bool pixel = ((val & (1<<(7-j))) > 0);
-            if(pixel && screen[xpos][ypos]) {
-                flipped = true;
+            if(pixel) {
+                if(pget(xpos, ypos)) {
+                    flipped = true;
+                    pset(xpos, ypos, false);
+                }
+                else {
+                    pset(xpos, ypos, true);
+                }
             }
-            screen[xpos][ypos] ^= pixel;
-            pset(xpos,ypos);
         }
     }
     if(flipped) {
@@ -134,10 +139,8 @@ bool load_rom(int argc, char * argv[]) {
     }
 }
 
-void flip() {
-    SDL_DestroyTexture(texture);
-    texture = NULL;
-    texture = SDL_CreateTextureFromSurface(renderer, buffer);
+void flip(void) {
+    SDL_UpdateTexture(texture, NULL, buffer->pixels, buffer->pitch);
     SDL_RenderCopy(renderer,texture,NULL,NULL);
     SDL_RenderPresent(renderer);
 }
@@ -191,9 +194,8 @@ uint32_t timer_callback(uint32_t interval, void *param) {
                 switch(event.window.event) {
                     case SDL_WINDOWEVENT_CLOSE:
                         //printf("closed\n");
-                        SDL_Quit();
                         quit = true;
-                        return 1;
+                        SDL_Quit();
                         break;
                     default:
                         SDL_FlushEvent(event.type);
@@ -201,8 +203,8 @@ uint32_t timer_callback(uint32_t interval, void *param) {
                 break;
             case SDL_QUIT:
                 //printf("util::SDL Quit triggered\n");
-                SDL_Quit();
                 quit = true;
+                SDL_Quit();
                 break;
             default: /* Report an unhandled event */
                 SDL_FlushEvent(event.type);
@@ -210,14 +212,16 @@ uint32_t timer_callback(uint32_t interval, void *param) {
         }
     }
     //printf("Processed %d events\n", events);
-    flip();
-    SDL_Delay(16);
-    frame_insts = 0;
-    SDL_AddTimer(16, timer_callback, NULL);
+    if(!quit) {
+        flip();
+        SDL_Delay(16);
+        frame_insts = 0;
+        SDL_AddTimer(16, timer_callback, NULL);
+    }
     return 0;
 }
 
-bool vid_init() {
+bool vid_init(void) {
         /* Initialize the SDL library */
         window = SDL_CreateWindow("KChip-8",
                                   SDL_WINDOWPOS_CENTERED,
@@ -311,7 +315,7 @@ int main(int argc, char * argv[]) {
     uint64_t cycle = 0;
 
     while(!quit) {
-        while(frame_insts >= 10) {
+        while(!quit && frame_insts >= 10) {
             SDL_Delay(2); //This one isn't to slow down the emulation, it's just so I don't waste time waiting for the video refresh to run
         }
         uint16_t instruction = read16(pc);
@@ -553,15 +557,7 @@ int main(int argc, char * argv[]) {
                 clock_speed = 1000 * (cycle / running_msecs);
                 printf("%ld cycles in %ld msec = %ld Hz\n", cycle, running_msecs, clock_speed);
             }
-/*
-            uint64_t expected_running = running_msecs - cycle / 600;
-            if(running_msecs < expected_running && expected_running - running_msecs > 0) {
-                printf("Expected %ld to pass, but %ld passed, so sleeping for %ld ms\n", expected_running, running_msecs, expected_running - running_msecs);
-                SDL_Delay(expected_running - running_msecs);
-            }
-        */
         }
-
     }
     return 0;
 }
