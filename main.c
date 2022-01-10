@@ -36,8 +36,8 @@ uint8_t font[16 * 5] = {0xf0,0x90,0x90,0x90,0xf0, //0
 
 SDL_Window * window = NULL;
 SDL_Renderer * renderer = NULL;
-SDL_Surface * buffer = NULL;
 SDL_Texture * texture = NULL;
+SDL_Surface * buffer = NULL;
 uint32_t col[2] = {0};
 uint8_t keymap[512] = {255};
 uint32_t frame_insts = 0;
@@ -221,6 +221,13 @@ uint32_t timer_callback(uint32_t interval, void *param) {
     return 0;
 }
 
+void teardown(void) {
+    if(buffer) SDL_FreeSurface(buffer);
+    if(texture) SDL_DestroyTexture(texture);
+    if(renderer) SDL_DestroyRenderer(renderer);
+    if(window) SDL_DestroyWindow(window);
+}
+
 bool vid_init(void) {
         /* Initialize the SDL library */
         window = SDL_CreateWindow("KChip-8",
@@ -228,9 +235,8 @@ bool vid_init(void) {
                                   SDL_WINDOWPOS_CENTERED,
                                   640, 320,
                                   SDL_WINDOW_RESIZABLE);
-        if ( window == NULL ) {
+        if (!window) {
             fprintf(stderr, "lcd::Couldn't set 640x320x32 video mode: %s\nStarting without video output.\n", SDL_GetError());
-            //exit(1);
             return false;
         }
 
@@ -238,20 +244,13 @@ bool vid_init(void) {
 
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE/*|SDL_RENDERER_PRESENTVSYNC*/);
         if(!renderer) {
-            fprintf(stderr, "lcd::Couldn't create a renderer: %s\nStarting without video output.\n",
-                    SDL_GetError());
-            SDL_DestroyWindow(window);
-            window = NULL;
+            fprintf(stderr, "lcd::Couldn't create a renderer: %s\nStarting without video output.\n", SDL_GetError());
             return false;
         }
 
         texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING,64,32);
         if(!texture) {
             fprintf(stderr, "lcd::Couldn't create a texture: %s\nStarting without video output.\n", SDL_GetError());
-            SDL_DestroyRenderer(renderer);
-            renderer = NULL;
-            SDL_DestroyWindow(window);
-            window = NULL;
             return false;
         }
 
@@ -286,6 +285,7 @@ int main(int argc, char * argv[]) {
     }
 
     if(!vid_init()) {
+        teardown();
         fprintf(stderr, "Video failed to init.\n");
         return 1;
     }
